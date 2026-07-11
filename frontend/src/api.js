@@ -1,7 +1,7 @@
 import axios from 'axios'
 
 // Change this if your backend runs elsewhere
-export const API_BASE_URL = 'http://localhost:8000'
+export const API_BASE_URL = 'https://banking-assistant-ba9h.onrender.com'
 
 const api = axios.create({ baseURL: API_BASE_URL })
 
