@@ -1,0 +1,51 @@
+import random
+from fastapi import APIRouter, Depends, HTTPException
+from fastapi.security import OAuth2PasswordRequestForm
+from sqlalchemy.orm import Session
+
+from .. import models, schemas, auth
+from ..database import get_db
+
+router = APIRouter(prefix="/auth", tags=["Authentication"])
+
+
+@router.post("/register", response_model=schemas.Token)
+def register(user_in: schemas.UserCreate, db: Session = Depends(get_db)):
+    existing = db.query(models.User).filter(models.User.email == user_in.email).first()
+    if existing:
+        raise HTTPException(status_code=400, detail="Email already registered")
+
+    user = models.User(
+        business_name=user_in.business_name,
+        email=user_in.email,
+        hashed_password=auth.hash_password(user_in.password),
+        role=user_in.role,
+        preferred_language=user_in.preferred_language,
+    )
+    db.add(user)
+    db.commit()
+    db.refresh(user)
+
+    # Auto-create a default business account for the new SMB user
+    account_number = f"SMB{random.randint(10000000, 99999999)}"
+    account = models.Account(account_number=account_number, owner_id=user.id, balance=0.0)
+    db.add(account)
+    db.commit()
+
+    token = auth.create_access_token({"sub": str(user.id)})
+    return schemas.Token(access_token=token, user=schemas.UserOut.model_validate(user))
+
+
+@router.post("/login", response_model=schemas.Token)
+def login(form_data: OAuth2PasswordRequestForm = Depends(), db: Session = Depends(get_db)):
+    user = db.query(models.User).filter(models.User.email == form_data.username).first()
+    if not user or not auth.verify_password(form_data.password, user.hashed_password):
+        raise HTTPException(status_code=401, detail="Incorrect email or password")
+
+    token = auth.create_access_token({"sub": str(user.id)})
+    return schemas.Token(access_token=token, user=schemas.UserOut.model_validate(user))
+
+
+@router.get("/me", response_model=schemas.UserOut)
+def get_me(current_user: models.User = Depends(auth.get_current_user)):
+    return current_user
