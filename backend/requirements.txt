@@ -10,3 +10,4 @@ pandas
 openpyxl
 requests
 python-dotenv
+reportlab==4.2.2
