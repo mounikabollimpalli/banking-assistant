@@ -11,3 +11,4 @@ openpyxl
 requests
 python-dotenv
 reportlab==4.2.2
+psycopg2-binary
